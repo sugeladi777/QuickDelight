@@ -1,0 +1,45 @@
+# Python 缓存与构建产物
+__pycache__/
+*.py[cod]
+*.pyo
+build/
+dist/
+*.egg-info/
+
+# 本地环境
+.conda/
+.venv/
+venv/
+env/
+.python-version
+
+# 编辑器与系统文件
+.vscode/
+.idea/
+.DS_Store
+
+# 测试与工具缓存
+.coverage
+.tox/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# 本地数据、日志与实验输出
+/data/
+/logs/
+/tmp/
+/tmp_check/
+*.log
+*.tmp
+*.bak
+nohup.out
+
+# 本地第三方依赖仓库
+/third_party/
+
+# 大文件模型权重
+*.ckpt
+*.pth
+*.pt
+*.pkl

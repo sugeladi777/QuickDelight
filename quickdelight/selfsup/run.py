@@ -1,0 +1,89 @@
+from __future__ import annotations
+
+"""Entry point for self-supervised texture training."""
+
+import random
+from dataclasses import dataclass
+from pathlib import Path
+
+import torch
+from torch.utils.data import DataLoader
+
+from quickdelight.texture_model import TextureCompletionNet
+from quickdelight.utils.device import choose_device, data_loader_kwargs, seed_everything
+
+from .dataset import SelfSupervisedTextureDataset, collate_selfsup_batch, discover_selfsup_records
+from .trainer import SelfSupTrainer, SelfSupTrainerConfig
+
+
+@dataclass(frozen=True)
+class SelfSupervisedTrainingConfig:
+    dataset_root: Path
+    save_root: Path
+    device: str = "cuda:0"
+    epochs: int = 10
+    batch_size: int = 1
+    num_workers: int = 2
+    learning_rate: float = 1e-3
+    base_channels: int = 32
+    val_ratio: float = 0.1
+    seed: int = 42
+    max_samples: int | None = None
+    crop_to_uv_mask: bool = True
+    use_mask: bool = True
+    use_amp: bool = True
+    preview_every: int = 1
+    reprojection_weight: float = 1.0
+
+
+def _split(records, val_ratio: float, seed: int):
+    if len(records) <= 1:
+        return records, records
+    indices = list(range(len(records)))
+    random.Random(seed).shuffle(indices)
+    val_count = max(1, int(round(len(records) * val_ratio)))
+    val_indices = set(indices[:val_count])
+    train = tuple(records[index] for index in indices if index not in val_indices)
+    val = tuple(records[index] for index in indices if index in val_indices)
+    return train or val, val
+
+
+def run_self_supervised_training(config: SelfSupervisedTrainingConfig) -> None:
+    seed_everything(config.seed)
+    device = choose_device(config.device)
+    records = discover_selfsup_records(config.dataset_root)
+    if config.max_samples is not None:
+        records = records[: config.max_samples]
+    if not records:
+        raise RuntimeError(f"no valid self-supervised samples found under {config.dataset_root}")
+    train_records, val_records = _split(records, config.val_ratio, config.seed)
+    loader_kwargs = data_loader_kwargs(device, config.num_workers)
+    train_loader = DataLoader(
+        SelfSupervisedTextureDataset(train_records, crop_to_uv_mask=config.crop_to_uv_mask),
+        batch_size=config.batch_size,
+        shuffle=True,
+        collate_fn=collate_selfsup_batch,
+        **loader_kwargs,
+    )
+    val_loader = DataLoader(
+        SelfSupervisedTextureDataset(val_records, crop_to_uv_mask=config.crop_to_uv_mask),
+        batch_size=config.batch_size,
+        shuffle=False,
+        collate_fn=collate_selfsup_batch,
+        **loader_kwargs,
+    )
+    model = TextureCompletionNet(base_channels=config.base_channels, use_mask=config.use_mask).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
+    trainer = SelfSupTrainer(
+        model,
+        optimizer,
+        device,
+        SelfSupTrainerConfig(
+            save_root=config.save_root,
+            epochs=config.epochs,
+            preview_every=config.preview_every,
+            use_amp=config.use_amp,
+            reprojection_weight=config.reprojection_weight,
+        ),
+    )
+    trainer.fit(train_loader, val_loader)

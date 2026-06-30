@@ -1,0 +1,13 @@
+numpy
+Pillow
+tqdm
+torch
+torchvision
+opencv-python
+kornia
+trimesh
+scipy
+tensorboard
+lpips
+open3d
+pyyaml
