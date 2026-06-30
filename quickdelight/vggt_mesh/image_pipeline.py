@@ -20,7 +20,6 @@ import torch
 from PIL import Image
 
 from quickdelight.input.paths import IMAGE_EXTENSIONS, discover_camera_ids, raw_image_path
-from quickdelight.utils.fs import ensure_dir
 
 from .infer_mesh import DEFAULT_VGGTFACE2_ROOT, VGGTFace2MeshConfig, infer_vggtface2_mesh
 from .run import _build_from_uv_buffers, _reset_dir, _save_reprojection_view
@@ -51,6 +50,11 @@ def _device(name: str) -> torch.device:
     if str(name).startswith("cuda") and not torch.cuda.is_available():
         return torch.device("cpu")
     return torch.device(name)
+
+
+def _ensure_dir(path: Path) -> Path:
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 @contextmanager
@@ -379,7 +383,7 @@ def _predict_point_maps(images: np.ndarray, vggtface2_root: Path, device: torch.
 
 
 def _write_internal_pkl(path: Path, images: np.ndarray, uvs: np.ndarray, masks: np.ndarray, point_maps: np.ndarray) -> None:
-    ensure_dir(path.parent)
+    _ensure_dir(path.parent)
     with path.open("wb") as handle:
         pickle.dump(
             {
@@ -399,7 +403,7 @@ def build_input_from_images(config: ImageOnlyInputConfig) -> Path:
     if sample_root.exists() and not config.overwrite:
         return sample_root
 
-    ensure_dir(sample_root)
+    _ensure_dir(sample_root)
     cache_root = sample_root / "cache"
     reproject_root = sample_root / "reproject"
     _reset_dir(cache_root)

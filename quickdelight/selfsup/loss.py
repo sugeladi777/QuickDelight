@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Losses for self-supervised UV texture training."""
+"""Self-supervised image reprojection loss."""
 
 import torch
 import torch.nn.functional as F
@@ -26,18 +26,6 @@ def sample_texture_to_views(texture: torch.Tensor, uv: torch.Tensor, crop_box: t
     return sampled.reshape(batch, views, texture.shape[1], height, width)
 
 
-def visible_texture_l1(
-    texture: torch.Tensor,
-    partials: torch.Tensor,
-    masks: torch.Tensor,
-    eps: float = 1e-6,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """Anchor the prediction to observed partial-map texels."""
-    valid = masks.float()
-    loss = (torch.abs(texture[:, None] - partials) * valid).sum() / (valid.sum() * texture.shape[1] + eps)
-    return loss, valid.mean()
-
-
 def masked_reprojection_l1(
     texture: torch.Tensor,
     target_images: torch.Tensor,
@@ -51,16 +39,3 @@ def masked_reprojection_l1(
     valid = masks.float()
     loss = (torch.abs(rendered - target_images) * valid).sum() / (valid.sum() * texture.shape[1] + eps)
     return loss, valid.mean()
-
-
-def masked_tv_loss(texture: torch.Tensor, mask: torch.Tensor | None = None, eps: float = 1e-6) -> torch.Tensor:
-    """A light smoothness prior inside the valid UV region."""
-    if mask is None:
-        return torch.abs(texture[..., 1:, :] - texture[..., :-1, :]).mean() + torch.abs(texture[..., :, 1:] - texture[..., :, :-1]).mean()
-
-    mask = mask.float()
-    y_valid = mask[..., 1:, :] * mask[..., :-1, :]
-    x_valid = mask[..., :, 1:] * mask[..., :, :-1]
-    y_loss = (torch.abs(texture[..., 1:, :] - texture[..., :-1, :]) * y_valid).sum() / (y_valid.sum() * texture.shape[1] + eps)
-    x_loss = (torch.abs(texture[..., :, 1:] - texture[..., :, :-1]) * x_valid).sum() / (x_valid.sum() * texture.shape[1] + eps)
-    return x_loss + y_loss

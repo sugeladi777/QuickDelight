@@ -34,9 +34,7 @@ class SelfSupervisedTrainingConfig:
     use_mask: bool = True
     use_amp: bool = True
     preview_every: int = 1
-    visible_weight: float = 1.0
-    reprojection_weight: float = 0.25
-    tv_weight: float = 1e-4
+    reprojection_weight: float = 1.0
     grad_clip_norm: float = 1.0
     save_every: int = 1
     use_scheduler: bool = True
@@ -90,9 +88,7 @@ def run_self_supervised_training(config: SelfSupervisedTrainingConfig) -> None:
             epochs=config.epochs,
             preview_every=config.preview_every,
             use_amp=config.use_amp,
-            visible_weight=config.visible_weight,
             reprojection_weight=config.reprojection_weight,
-            tv_weight=config.tv_weight,
             grad_clip_norm=config.grad_clip_norm,
             save_every=config.save_every,
         ),

@@ -37,7 +37,7 @@ python -m quickdelight train-selfsup \
 - `mask-aware ConvNeXt encoder`: 每个 partial-map 与 mask 共享编码，避免把缺失区域当作真实黑色纹理。
 - `confidence fusion`: 在多尺度特征上学习每个视角的可信度，融合 16 个 partial-map。
 - `coarse-to-refine UV decoder`: 先生成完整 coarse UV texture，再在 UV 空间做细化。
-- `self-supervised losses`: `visible partial-map L1 + 0.25 * image reprojection L1 + 1e-4 * masked TV`。
+- `self-supervised loss`: 只使用 image reprojection L1，即把预测 UV texture 贴回 mesh 并投影到原图视角后，与原图计算 mask 内 L1。
 
 训练会保存 `latest.pth`、`best.pth`、`metrics.jsonl` 和每轮 preview。
 

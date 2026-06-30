@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 from quickdelight.preview import save_preview
 from quickdelight.texture_model import TextureCompletionNet
 
-from .loss import masked_reprojection_l1, masked_tv_loss, visible_texture_l1
+from .loss import masked_reprojection_l1
 
 
 @dataclass(frozen=True)
@@ -23,9 +23,7 @@ class SelfSupTrainerConfig:
     epochs: int
     preview_every: int = 1
     use_amp: bool = True
-    visible_weight: float = 1.0
     reprojection_weight: float = 1.0
-    tv_weight: float = 1e-4
     grad_clip_norm: float = 1.0
     save_every: int = 1
 
@@ -75,12 +73,10 @@ class SelfSupTrainer:
             target_images = batch["reproject_images"].to(self.device)
             uv = batch["reproject_uv"].to(self.device)
             reproj_masks = batch["reproject_masks"].to(self.device)
-            gt_mask = batch["gt_mask"].to(self.device)
             crop_box = batch["crop_box"].to(self.device)
             texture_size = int(batch["texture_size"][0].item())
             with self._autocast():
                 prediction = self.model(inputs, masks)
-                visible_l1, visible_ratio = visible_texture_l1(prediction, inputs, masks)
                 reproj_l1, reproj_ratio = masked_reprojection_l1(
                     prediction,
                     target_images,
@@ -89,8 +85,7 @@ class SelfSupTrainer:
                     crop_box=crop_box,
                     full_size=texture_size,
                 )
-                tv = masked_tv_loss(prediction, gt_mask)
-                loss = self.config.visible_weight * visible_l1 + self.config.reprojection_weight * reproj_l1 + self.config.tv_weight * tv
+                loss = self.config.reprojection_weight * reproj_l1
             if not torch.isfinite(loss):
                 raise RuntimeError(f"non-finite loss detected: {float(loss.detach().cpu())}")
             if training:
@@ -103,11 +98,8 @@ class SelfSupTrainer:
                 self.scaler.update()
             count += 1
             sums["total"] = sums.get("total", 0.0) + float(loss.detach().cpu())
-            sums["visible_l1"] = sums.get("visible_l1", 0.0) + float(visible_l1.detach().cpu())
-            sums["visible_ratio"] = sums.get("visible_ratio", 0.0) + float(visible_ratio.detach().cpu())
             sums["reprojection_l1"] = sums.get("reprojection_l1", 0.0) + float(reproj_l1.detach().cpu())
             sums["reprojection_ratio"] = sums.get("reprojection_ratio", 0.0) + float(reproj_ratio.detach().cpu())
-            sums["tv"] = sums.get("tv", 0.0) + float(tv.detach().cpu())
         return {key: value / max(1, count) for key, value in sums.items()}
 
     @torch.inference_mode()

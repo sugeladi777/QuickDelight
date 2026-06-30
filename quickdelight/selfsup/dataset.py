@@ -121,7 +121,7 @@ class SelfSupervisedTextureDataset(Dataset):
     def __init__(self, records: tuple[SelfSupSampleRecord, ...], crop_to_uv_mask: bool = True):
         self.records = records
         self.crop_to_uv_mask = crop_to_uv_mask
-        self.gt_mask, self.crop_box = self._prepare_fixed_mask(records)
+        self.fixed_uv_mask, self.crop_box = self._prepare_fixed_mask(records)
 
     @staticmethod
     def _prepare_fixed_mask(records: tuple[SelfSupSampleRecord, ...]) -> tuple[torch.Tensor | None, tuple[int, int, int, int] | None]:
@@ -132,33 +132,31 @@ class SelfSupervisedTextureDataset(Dataset):
             width, height = image.size
         if width != height:
             raise ValueError(f"expected square UV input, got {width}x{height}: {first_input}")
-        gt_mask = _fixed_uv_mask(width)
-        return gt_mask, _compute_crop_box(gt_mask)
+        fixed_uv_mask = _fixed_uv_mask(width)
+        return fixed_uv_mask, _compute_crop_box(fixed_uv_mask)
 
     def __len__(self) -> int:
         return len(self.records)
 
     def __getitem__(self, index: int) -> dict[str, torch.Tensor | str]:
-        if self.gt_mask is None or self.crop_box is None:
+        if self.fixed_uv_mask is None or self.crop_box is None:
             raise RuntimeError("dataset was created without valid records")
         record = self.records[index]
-        gt_mask = self.gt_mask.clone()
+        fixed_uv_mask = self.fixed_uv_mask.clone()
         crop_box = self.crop_box
         inputs = _stack_images(record.input_paths)
-        masks = _stack_masks(record.input_mask_paths) * gt_mask.unsqueeze(0)
-        texture_size = int(gt_mask.shape[-1])
+        masks = _stack_masks(record.input_mask_paths) * fixed_uv_mask.unsqueeze(0)
+        texture_size = int(fixed_uv_mask.shape[-1])
         images = torch.stack([_load_rgb_tensor(path) for path in record.image_paths], dim=0)
         uv = torch.stack([_load_uv_tensor(path) for path in record.uv_paths], dim=0)
         reproj_masks = torch.stack([_load_mask_tensor(path) for path in record.reproj_mask_paths], dim=0)
         if self.crop_to_uv_mask:
             inputs = _crop_tensor(inputs, crop_box)
             masks = _crop_tensor(masks, crop_box)
-            gt_mask = _crop_tensor(gt_mask, crop_box)
         return {
             "sample_id": record.sample_id,
             "inputs": inputs,
             "masks": masks,
-            "gt_mask": gt_mask,
             "reproject_images": images,
             "reproject_uv": uv,
             "reproject_masks": reproj_masks,
@@ -172,7 +170,6 @@ def collate_selfsup_batch(batch: list[dict[str, torch.Tensor | str]]) -> dict[st
     inputs = []
     masks = []
     sample_ids = []
-    gt_masks = []
     images = []
     uv = []
     reproj_masks = []
@@ -193,14 +190,12 @@ def collate_selfsup_batch(batch: list[dict[str, torch.Tensor | str]]) -> dict[st
             uv.append(item["reproject_uv"])
             reproj_masks.append(item["reproject_masks"])
         sample_ids.append(item["sample_id"])
-        gt_masks.append(item["gt_mask"])
         crop_boxes.append(item["crop_box"])
         texture_sizes.append(item["texture_size"])
     return {
         "sample_id": sample_ids,
         "inputs": torch.stack(inputs, dim=0),
         "masks": torch.stack(masks, dim=0),
-        "gt_mask": torch.stack(gt_masks, dim=0),
         "reproject_images": torch.stack(images, dim=0),
         "reproject_uv": torch.stack(uv, dim=0),
         "reproject_masks": torch.stack(reproj_masks, dim=0),
