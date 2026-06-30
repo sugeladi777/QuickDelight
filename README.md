@@ -32,6 +32,15 @@ python -m quickdelight train-selfsup \
   --save-root data/runs/selfsup
 ```
 
+默认训练 baseline 参考 FreeUV / MV2UV / Paint3D 这类近期 UV texture generation 工作的思路，使用轻量的多视角 UV completion 网络：
+
+- `mask-aware ConvNeXt encoder`: 每个 partial-map 与 mask 共享编码，避免把缺失区域当作真实黑色纹理。
+- `confidence fusion`: 在多尺度特征上学习每个视角的可信度，融合 16 个 partial-map。
+- `coarse-to-refine UV decoder`: 先生成完整 coarse UV texture，再在 UV 空间做细化。
+- `self-supervised losses`: `visible partial-map L1 + 0.25 * image reprojection L1 + 1e-4 * masked TV`。
+
+训练会保存 `latest.pth`、`best.pth`、`metrics.jsonl` 和每轮 preview。
+
 `cache/vggtface2_input.pkl` 和 `vggtface2_mesh.obj` 是内部自动生成的中间结果，用于检查和调试；它们不是项目输入。
 
 ## Folder Layout

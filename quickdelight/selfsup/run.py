@@ -24,7 +24,8 @@ class SelfSupervisedTrainingConfig:
     epochs: int = 10
     batch_size: int = 1
     num_workers: int = 2
-    learning_rate: float = 1e-3
+    learning_rate: float = 3e-4
+    weight_decay: float = 1e-4
     base_channels: int = 32
     val_ratio: float = 0.1
     seed: int = 42
@@ -33,7 +34,12 @@ class SelfSupervisedTrainingConfig:
     use_mask: bool = True
     use_amp: bool = True
     preview_every: int = 1
-    reprojection_weight: float = 1.0
+    visible_weight: float = 1.0
+    reprojection_weight: float = 0.25
+    tv_weight: float = 1e-4
+    grad_clip_norm: float = 1.0
+    save_every: int = 1
+    use_scheduler: bool = True
 
 
 def _split(records, val_ratio: float, seed: int):
@@ -73,7 +79,8 @@ def run_self_supervised_training(config: SelfSupervisedTrainingConfig) -> None:
         **loader_kwargs,
     )
     model = TextureCompletionNet(base_channels=config.base_channels, use_mask=config.use_mask).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(1, config.epochs)) if config.use_scheduler else None
     trainer = SelfSupTrainer(
         model,
         optimizer,
@@ -83,7 +90,12 @@ def run_self_supervised_training(config: SelfSupervisedTrainingConfig) -> None:
             epochs=config.epochs,
             preview_every=config.preview_every,
             use_amp=config.use_amp,
+            visible_weight=config.visible_weight,
             reprojection_weight=config.reprojection_weight,
+            tv_weight=config.tv_weight,
+            grad_clip_norm=config.grad_clip_norm,
+            save_every=config.save_every,
         ),
+        scheduler=scheduler,
     )
     trainer.fit(train_loader, val_loader)

@@ -10,7 +10,7 @@ from typing import Sequence
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_RAW_ROOT = REPO_ROOT / "data" / "raw"
-DEFAULT_DATASET_ROOT = REPO_ROOT / "data" / "dataset"
+DEFAULT_DATASET_ROOT = REPO_ROOT / "data" / "quickdelight_dataset"
 
 
 def _add_dataset_selection(parser: argparse.ArgumentParser) -> None:
@@ -95,6 +95,7 @@ def run_train_selfsup(args) -> int:
             batch_size=args.batch_size,
             num_workers=args.num_workers,
             learning_rate=args.learning_rate,
+            weight_decay=args.weight_decay,
             base_channels=args.base_channels,
             val_ratio=args.val_ratio,
             seed=args.seed,
@@ -103,7 +104,12 @@ def run_train_selfsup(args) -> int:
             use_mask=args.use_mask,
             use_amp=args.use_amp,
             preview_every=args.preview_every,
+            visible_weight=args.visible_weight,
             reprojection_weight=args.reprojection_weight,
+            tv_weight=args.tv_weight,
+            grad_clip_norm=args.grad_clip_norm,
+            save_every=args.save_every,
+            use_scheduler=args.use_scheduler,
         )
     )
     return 0
@@ -138,10 +144,11 @@ def _build_parser() -> argparse.ArgumentParser:
     train_selfsup.add_argument("--dataset-root", "--dataset_root", "--data_root", dest="dataset_root", type=Path, default=DEFAULT_DATASET_ROOT)
     train_selfsup.add_argument("--save-root", "--save_root", dest="save_root", type=Path, default=REPO_ROOT / "data" / "runs" / "quickdelight_selfsup")
     train_selfsup.add_argument("--device", type=str, default="cuda:0")
-    train_selfsup.add_argument("--epochs", type=int, default=10)
+    train_selfsup.add_argument("--epochs", type=int, default=50)
     train_selfsup.add_argument("--batch-size", "--batch_size", dest="batch_size", type=int, default=1)
     train_selfsup.add_argument("--num-workers", "--num_workers", dest="num_workers", type=int, default=2)
-    train_selfsup.add_argument("--learning-rate", "--learning_rate", dest="learning_rate", type=float, default=1e-3)
+    train_selfsup.add_argument("--learning-rate", "--learning_rate", dest="learning_rate", type=float, default=3e-4)
+    train_selfsup.add_argument("--weight-decay", "--weight_decay", dest="weight_decay", type=float, default=1e-4)
     train_selfsup.add_argument("--base-channels", "--base_channels", dest="base_channels", type=int, default=32)
     train_selfsup.add_argument("--val-ratio", "--val_ratio", dest="val_ratio", type=float, default=0.1)
     train_selfsup.add_argument("--seed", type=int, default=42)
@@ -153,7 +160,13 @@ def _build_parser() -> argparse.ArgumentParser:
     train_selfsup.add_argument("--amp", dest="use_amp", action="store_true", default=True)
     train_selfsup.add_argument("--no-amp", dest="use_amp", action="store_false")
     train_selfsup.add_argument("--preview-every", "--preview_every", dest="preview_every", type=int, default=1)
-    train_selfsup.add_argument("--reprojection-weight", "--reprojection_weight", dest="reprojection_weight", type=float, default=1.0)
+    train_selfsup.add_argument("--visible-weight", "--visible_weight", dest="visible_weight", type=float, default=1.0)
+    train_selfsup.add_argument("--reprojection-weight", "--reprojection_weight", dest="reprojection_weight", type=float, default=0.25)
+    train_selfsup.add_argument("--tv-weight", "--tv_weight", dest="tv_weight", type=float, default=1e-4)
+    train_selfsup.add_argument("--grad-clip-norm", "--grad_clip_norm", dest="grad_clip_norm", type=float, default=1.0)
+    train_selfsup.add_argument("--save-every", "--save_every", dest="save_every", type=int, default=1)
+    train_selfsup.add_argument("--scheduler", dest="use_scheduler", action="store_true", default=True)
+    train_selfsup.add_argument("--no-scheduler", dest="use_scheduler", action="store_false")
     train_selfsup.set_defaults(func=run_train_selfsup)
 
     return parser
