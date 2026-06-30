@@ -105,6 +105,11 @@ def run_train_selfsup(args) -> int:
             use_amp=args.use_amp,
             preview_every=args.preview_every,
             reprojection_weight=args.reprojection_weight,
+            reprojection_loss_type=args.reprojection_loss_type,
+            mask_erode_pixels=args.mask_erode_pixels,
+            color_normalize=args.color_normalize,
+            gradient_weight=args.gradient_weight,
+            charbonnier_eps=args.charbonnier_eps,
             grad_clip_norm=args.grad_clip_norm,
             save_every=args.save_every,
             use_scheduler=args.use_scheduler,
@@ -159,6 +164,13 @@ def _build_parser() -> argparse.ArgumentParser:
     train_selfsup.add_argument("--no-amp", dest="use_amp", action="store_false")
     train_selfsup.add_argument("--preview-every", "--preview_every", dest="preview_every", type=int, default=1)
     train_selfsup.add_argument("--reprojection-weight", "--reprojection_weight", dest="reprojection_weight", type=float, default=1.0)
+    train_selfsup.add_argument("--reprojection-loss-type", "--reprojection_loss_type", dest="reprojection_loss_type", choices=("l1", "smooth_l1", "charbonnier"), default="l1")
+    train_selfsup.add_argument("--mask-erode-pixels", "--mask_erode_pixels", dest="mask_erode_pixels", type=int, default=0)
+    train_selfsup.add_argument("--color-normalize", "--color_normalize", dest="color_normalize", action="store_true")
+    train_selfsup.add_argument("--no-color-normalize", "--no_color_normalize", dest="color_normalize", action="store_false")
+    train_selfsup.set_defaults(color_normalize=False)
+    train_selfsup.add_argument("--gradient-weight", "--gradient_weight", dest="gradient_weight", type=float, default=0.0)
+    train_selfsup.add_argument("--charbonnier-eps", "--charbonnier_eps", dest="charbonnier_eps", type=float, default=1e-3)
     train_selfsup.add_argument("--grad-clip-norm", "--grad_clip_norm", dest="grad_clip_norm", type=float, default=1.0)
     train_selfsup.add_argument("--save-every", "--save_every", dest="save_every", type=int, default=1)
     train_selfsup.add_argument("--scheduler", dest="use_scheduler", action="store_true", default=True)

@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 from quickdelight.preview import save_preview
 from quickdelight.texture_model import TextureCompletionNet
 
-from .loss import masked_reprojection_l1
+from .loss import masked_reprojection_loss
 
 
 @dataclass(frozen=True)
@@ -24,6 +24,11 @@ class SelfSupTrainerConfig:
     preview_every: int = 1
     use_amp: bool = True
     reprojection_weight: float = 1.0
+    reprojection_loss_type: str = "l1"
+    mask_erode_pixels: int = 0
+    color_normalize: bool = False
+    gradient_weight: float = 0.0
+    charbonnier_eps: float = 1e-3
     grad_clip_norm: float = 1.0
     save_every: int = 1
 
@@ -77,15 +82,20 @@ class SelfSupTrainer:
             texture_size = int(batch["texture_size"][0].item())
             with self._autocast():
                 prediction = self.model(inputs, masks)
-                reproj_l1, reproj_ratio = masked_reprojection_l1(
+                reproj = masked_reprojection_loss(
                     prediction,
                     target_images,
                     uv,
                     reproj_masks,
                     crop_box=crop_box,
                     full_size=texture_size,
+                    loss_type=self.config.reprojection_loss_type,
+                    mask_erode_pixels=self.config.mask_erode_pixels,
+                    color_normalize=self.config.color_normalize,
+                    gradient_weight=self.config.gradient_weight,
+                    charbonnier_eps=self.config.charbonnier_eps,
                 )
-                loss = self.config.reprojection_weight * reproj_l1
+                loss = self.config.reprojection_weight * reproj["total"]
             if not torch.isfinite(loss):
                 raise RuntimeError(f"non-finite loss detected: {float(loss.detach().cpu())}")
             if training:
@@ -98,8 +108,10 @@ class SelfSupTrainer:
                 self.scaler.update()
             count += 1
             sums["total"] = sums.get("total", 0.0) + float(loss.detach().cpu())
-            sums["reprojection_l1"] = sums.get("reprojection_l1", 0.0) + float(reproj_l1.detach().cpu())
-            sums["reprojection_ratio"] = sums.get("reprojection_ratio", 0.0) + float(reproj_ratio.detach().cpu())
+            sums["reprojection"] = sums.get("reprojection", 0.0) + float(reproj["total"].detach().cpu())
+            sums["photometric"] = sums.get("photometric", 0.0) + float(reproj["photometric"].detach().cpu())
+            sums["gradient"] = sums.get("gradient", 0.0) + float(reproj["gradient"].detach().cpu())
+            sums["reprojection_ratio"] = sums.get("reprojection_ratio", 0.0) + float(reproj["valid_ratio"].detach().cpu())
         return {key: value / max(1, count) for key, value in sums.items()}
 
     @torch.inference_mode()

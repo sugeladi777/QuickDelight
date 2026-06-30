@@ -39,6 +39,8 @@ python -m quickdelight train-selfsup \
 - `coarse-to-refine UV decoder`: 先生成完整 coarse UV texture，再在 UV 空间做细化。
 - `self-supervised loss`: 只使用 image reprojection L1，即把预测 UV texture 贴回 mesh 并投影到原图视角后，与原图计算 mask 内 L1。
 
+训练入口也支持重投影 loss 实验开关：`--reprojection-loss-type {l1,smooth_l1,charbonnier}`、`--mask-erode-pixels`、`--color-normalize`、`--gradient-weight`。
+
 训练会保存 `latest.pth`、`best.pth`、`metrics.jsonl` 和每轮 preview。
 
 `cache/vggtface2_input.pkl` 和 `vggtface2_mesh.obj` 是内部自动生成的中间结果，用于检查和调试；它们不是项目输入。

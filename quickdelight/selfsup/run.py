@@ -35,6 +35,11 @@ class SelfSupervisedTrainingConfig:
     use_amp: bool = True
     preview_every: int = 1
     reprojection_weight: float = 1.0
+    reprojection_loss_type: str = "l1"
+    mask_erode_pixels: int = 0
+    color_normalize: bool = False
+    gradient_weight: float = 0.0
+    charbonnier_eps: float = 1e-3
     grad_clip_norm: float = 1.0
     save_every: int = 1
     use_scheduler: bool = True
@@ -89,6 +94,11 @@ def run_self_supervised_training(config: SelfSupervisedTrainingConfig) -> None:
             preview_every=config.preview_every,
             use_amp=config.use_amp,
             reprojection_weight=config.reprojection_weight,
+            reprojection_loss_type=config.reprojection_loss_type,
+            mask_erode_pixels=config.mask_erode_pixels,
+            color_normalize=config.color_normalize,
+            gradient_weight=config.gradient_weight,
+            charbonnier_eps=config.charbonnier_eps,
             grad_clip_norm=config.grad_clip_norm,
             save_every=config.save_every,
         ),
